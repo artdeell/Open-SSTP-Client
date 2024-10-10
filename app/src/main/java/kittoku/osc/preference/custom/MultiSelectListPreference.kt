@@ -5,6 +5,7 @@ import android.util.AttributeSet
 import androidx.preference.MultiSelectListPreference
 import androidx.preference.Preference
 import androidx.preference.Preference.SummaryProvider
+import kittoku.osc.R
 import kittoku.osc.preference.AUTH_PROTOCOL_EAP_MSCHAPv2
 import kittoku.osc.preference.AUTH_PROTOCOL_MSCHAPv2
 import kittoku.osc.preference.AUTH_PROTOCOl_PAP
@@ -35,24 +36,19 @@ internal abstract class ModifiedMultiSelectListPreference(context: Context, attr
 internal class SSLSuitesPreference(context: Context, attrs: AttributeSet) : ModifiedMultiSelectListPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.SSL_SUITES
     override val parentKey = OscPrefKey.SSL_DO_SELECT_SUITES
-    override val preferenceTitle = "Select Cipher Suites"
+    override val preferenceTitle = context.getString(R.string.multiselect_cipher_suites)
     override val entryValues = SSLContext.getDefault().supportedSSLParameters.cipherSuites as Array<String>
 
     override val provider = SummaryProvider<Preference> {
         val currentValue = getSetPrefValue(oscPrefKey, it.sharedPreferences!!)
-
-        when (currentValue.size) {
-            0 -> "[No Suite Selected]"
-            1 -> "1 Suite Selected"
-            else -> "${currentValue.size} Suites Selected"
-        }
+        context.getString(R.string.multiselect_suites_selected, currentValue.size)
     }
 }
 
 internal class PPPAuthProtocolsPreference(context: Context, attrs: AttributeSet) : ModifiedMultiSelectListPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.PPP_AUTH_PROTOCOLS
     override val parentKey = null
-    override val preferenceTitle = "Select Authentication Protocols"
+    override val preferenceTitle = context.getString(R.string.multiselect_auth_protocols)
     override val entryValues = arrayOf(
         AUTH_PROTOCOl_PAP,
         AUTH_PROTOCOL_MSCHAPv2,
@@ -61,11 +57,6 @@ internal class PPPAuthProtocolsPreference(context: Context, attrs: AttributeSet)
 
     override val provider = SummaryProvider<Preference> {
         val currentValue = getSetPrefValue(oscPrefKey, it.sharedPreferences!!)
-
-        when (currentValue.size) {
-            0 -> "[No Protocol Selected]"
-            1 -> "1 Protocol Selected"
-            else -> "${currentValue.size} Protocols Selected"
-        }
+        context.getString(R.string.multiselect_protocols_selected, currentValue.size)
     }
 }

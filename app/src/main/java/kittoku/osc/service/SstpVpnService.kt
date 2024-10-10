@@ -13,6 +13,7 @@ import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
 import android.service.quicksettings.TileService
+import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -66,7 +67,7 @@ internal class SstpVpnService : VpnService() {
 
     internal var logWriter: LogWriter? = null
     private var controller: Controller?  = null
-
+    private lateinit var notificationBuilder: NotificationCompat.Builder
     private var jobReconnect: Job? = null
 
     private fun setRootState(state: Boolean) {
@@ -129,13 +130,18 @@ internal class SstpVpnService : VpnService() {
 
                 close()
 
+                tryCancel(NOTIFICATION_ERROR_ID)
+                tryCancel(NOTIFICATION_RECONNECT_ID)
+                tryCancel(NOTIFICATION_DISCONNECT_ID)
+
                 Service.START_NOT_STICKY
             }
         }
     }
 
     private fun initializeClient() {
-        controller = Controller(SharedBridge(this)).also {
+        var sharedBridge = SharedBridge(this)
+        controller = Controller(sharedBridge).also {
             it.launchJobMain()
         }
     }
@@ -178,9 +184,8 @@ internal class SstpVpnService : VpnService() {
                     val life = it - 1
                     setIntPrefValue(life, OscPrefKey.RECONNECTION_LIFE, prefs)
 
-                    val message = "Reconnection will be tried (LIFE = $life)"
-                    notifyMessage(message, NOTIFICATION_RECONNECT_ID, NOTIFICATION_RECONNECT_CHANNEL)
-                    logWriter?.report(message)
+                    notifyMessage(getString(R.string.service_vpn_reconnection, life), NOTIFICATION_RECONNECT_ID, NOTIFICATION_RECONNECT_CHANNEL)
+                    logWriter?.report("Reconnecting: $life")
                 }
 
                 delay(getIntPrefValue(OscPrefKey.RECONNECTION_INTERVAL, prefs) * 1000L)
@@ -214,15 +219,16 @@ internal class SstpVpnService : VpnService() {
             PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val builder = NotificationCompat.Builder(this, NOTIFICATION_DISCONNECT_CHANNEL).also {
+        notificationBuilder = NotificationCompat.Builder(this, NOTIFICATION_DISCONNECT_CHANNEL).also {
             it.priority = NotificationCompat.PRIORITY_DEFAULT
-            it.setOngoing(true)
             it.setAutoCancel(true)
+            it.setContentTitle(getString(R.string.service_vpn_running))
+            it.setContentText(getString(R.string.service_vpn_running_subtitle))
             it.setSmallIcon(R.drawable.ic_baseline_vpn_lock_24)
-            it.addAction(R.drawable.ic_baseline_close_24, "DISCONNECT", pendingIntent)
+            it.addAction(R.drawable.ic_baseline_close_24, getString(R.string.service_vpn_disconnect), pendingIntent)
         }
 
-        startForeground(NOTIFICATION_DISCONNECT_ID, builder.build())
+        startForeground(NOTIFICATION_DISCONNECT_ID, notificationBuilder.build())
     }
 
     internal fun notifyMessage(message: String, id: Int, channel: String) {
@@ -247,6 +253,16 @@ internal class SstpVpnService : VpnService() {
             ) == PackageManager.PERMISSION_GRANTED
         ) {
             notificationManager.notify(id, notification)
+        }
+    }
+
+    internal fun tryCancel(id: Int) {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationManager.cancel(id)
         }
     }
 
